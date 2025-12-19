@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Report Scheduler + SMS</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .animate-slide-up { animation: slideUp 0.3s ease-out; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONS ---
+        const Icon = ({ path, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        const Icons = {
+            Calendar: (props) => <Icon {...props} path={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>} />,
+            Users: (props) => <Icon {...props} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />,
+            MessageCircle: (props) => <Icon {...props} path={<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>} />,
+            CheckCircle: (props) => <Icon {...props} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />,
+            Settings: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />,
+            Send: (props) => <Icon {...props} path={<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>} />,
+            Copy: (props) => <Icon {...props} path={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />,
+            History: (props) => <Icon {...props} path={<><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></>} />,
+            Trash2: (props) => <Icon {...props} path={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
+            Plus: (props) => <Icon {...props} path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />,
+            Smartphone: (props) => <Icon {...props} path={<><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>} />,
+            Share: (props) => <Icon {...props} path={<><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></>} />,
+            Contact: (props) => <Icon {...props} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></>} />,
+            MessageSquare: (props) => <Icon {...props} path={<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></>} />
+        };
+
+        // --- APP COMPONENT ---
+        function App() {
+            // STATE
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [isSimulating, setIsSimulating] = useState(false);
+            const [simulationOffset, setSimulationOffset] = useState(0);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [showSendModal, setShowSendModal] = useState(false);
+            const [pendingGroup, setPendingGroup] = useState(null);
+            const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+            // Initial Data
+            const [contacts15th, setContacts15th] = useState(() => {
+                const saved = localStorage.getItem('contacts15th');
+                return saved ? JSON.parse(saved) : [
+                    { id: 1, name: 'John Doe', phone: '', method: 'Both' },
+                ];
+            });
+
+            const [contactsEnd, setContactsEnd] = useState(() => {
+                const saved = localStorage.getItem('contactsEnd');
+                return saved ? JSON.parse(saved) : [
+                    { id: 1, name: 'Alice Johnson', phone: '', method: 'Both' },
+                ];
+            });
+
+            const [logs, setLogs] = useState(() => {
+                const saved = localStorage.getItem('msgLogs');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            // Constants
+            const MESSAGE_TEXT = "Please send your report to the RCO today, thank you";
+            
+            // EFFECTS
+            useEffect(() => localStorage.setItem('contacts15th', JSON.stringify(contacts15th)), [contacts15th]);
+            useEffect(() => localStorage.setItem('contactsEnd', JSON.stringify(contactsEnd)), [contactsEnd]);
+            useEffect(() => localStorage.setItem('msgLogs', JSON.stringify(logs)), [logs]);
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentDate(new Date()), 60000);
+                return () => clearInterval(timer);
+            }, []);
+
+            // LOGIC
+            const displayDate = new Date(currentDate.getTime() + simulationOffset);
+            const currentDay = displayDate.getDate();
+
+            const is10th = currentDay === 10;
+            const is25th = currentDay === 25;
+
+            let activeTask = null;
+            if (is10th) activeTask = { group: 'T1_15TH', contacts: contacts15th };
+            else if (is25th) activeTask = { group: 'T1_END', contacts: contactsEnd };
+
+            // HANDLERS
+            const handleCopy = () => {
+                const textArea = document.createElement("textarea");
+                textArea.value = MESSAGE_TEXT;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                alert("Text copied to clipboard!");
+            };
+
+            const markAsSent = () => {
+                const newLog = {
+                    id: Date.now(),
+                    date: displayDate.toLocaleDateString(),
+                    time: displayDate.toLocaleTimeString(),
+                    group: pendingGroup.group,
+                    recipientCount: pendingGroup.contacts.length,
+                    status: 'Completed'
+                };
+                setLogs([newLog, ...logs]);
+                setShowSendModal(false);
+                setPendingGroup(null);
+            };
+
+            const initiateSend = (task) => {
+                setPendingGroup(task);
+                setShowSendModal(true);
+            };
+
+            const simulateDate = (day) => {
+                const today = new Date();
+                const currentDayOfMonth = today.getDate();
+                const diff = day - currentDayOfMonth;
+                setSimulationOffset(diff * 24 * 60 * 60 * 1000);
+                setIsSimulating(true);
+            };
+
+            const resetSimulation = () => {
+                setSimulationOffset(0);
+                setIsSimulating(false);
+            };
+
+            const clearHistory = () => {
+                if(window.confirm("Are you sure you want to clear the history?")) {
+                    setLogs([]);
+                }
+            };
+
+            // Generate SMS Link
+            const getSMSLink = (contacts) => {
+                if (!contacts || contacts.length === 0) return "#";
+                // Get all valid phone numbers
+                const phoneNumbers = contacts
+                    .map(c => c.phone)
+                    .filter(p => p && p.trim() !== "")
+                    .join(',');
+                
+                if (!phoneNumbers) return "#";
+                
+                // SMS URI scheme: sms:number1,number2?body=message
+                // Note: Android typically accepts comma separation. iOS varies but this is optimized for Android as requested.
+                return `sms:${phoneNumbers}?body=${encodeURIComponent(MESSAGE_TEXT)}`;
+            };
+
+            // Calendar Link Logic
+            const getCalendarLink = (day, title) => {
+                const now = new Date();
+                let targetMonth = now.getMonth();
+                let targetYear = now.getFullYear();
+                if (now.getDate() > day) {
+                    targetMonth++;
+                    if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+                }
+                const startDate = new Date(targetYear, targetMonth, day);
+                const dateString = startDate.toISOString().replace(/-|:|\.\d\d\d/g, "").substring(0, 8);
+                const nextDayString = new Date(startDate.getTime() + 86400000).toISOString().replace(/-|:|\.\d\d\d/g, "").substring(0, 8);
+                return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dateString}/${nextDayString}&details=${encodeURIComponent(MESSAGE_TEXT)}&recur=RRULE:FREQ=MONTHLY`;
+            };
+
+            // --- SUB-COMPONENTS ---
+
+            const StatusCard = () => {
+                if (!activeTask) {
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center text-center">
+                    <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                        <Icons.CheckCircle className="text-green-600" size={32} />
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-800">All Caught Up</h2>
+                    <p className="text-slate-500 mt-1">No reports scheduled for today ({displayDate.toLocaleDateString()}).</p>
+                    <div className="mt-4 text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
+                        Next task: {currentDay < 10 ? "10th (T1_15TH)" : (currentDay < 25 ? "25th (T1_END)" : "10th Next Month")}
+                    </div>
+                    </div>
+                );
+                }
+
+                const alreadySentToday = logs.some(
+                log => log.date === displayDate.toLocaleDateString() && log.group === activeTask.group
+                );
+
+                if (alreadySentToday) {
+                return (
+                    <div className="bg-green-50 rounded-xl shadow-sm border border-green-200 p-6 flex flex-col items-center text-center">
+                    <div className="h-16 w-16 bg-green-200 rounded-full flex items-center justify-center mb-4">
+                        <Icons.CheckCircle className="text-green-700" size={32} />
+                    </div>
+                    <h2 className="text-lg font-bold text-green-800">Task Complete</h2>
+                    <p className="text-green-700 mt-1">You've sent the {activeTask.group} report request.</p>
+                    </div>
+                );
+                }
+
+                return (
+                <div className="bg-white rounded-xl shadow-md border-l-4 border-blue-600 p-6 animate-pulse-slow">
+                    <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded uppercase animate-pulse">
+                        Due Today
+                    </span>
+                    <span className="text-slate-400 text-xs font-medium">
+                        {displayDate.toLocaleDateString()}
+                    </span>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Send to {activeTask.group}</h2>
+                    <p className="text-slate-600 mb-6">
+                    It is the {currentDay}th. Please send the standard report request to {activeTask.contacts.length} recipients.
+                    </p>
+                    
+                    <button 
+                    onClick={() => initiateSend(activeTask)}
+                    className="w-full bg-blue-600 active:bg-blue-700 text-white p-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-blue-200 transition-transform active:scale-95"
+                    >
+                    <Icons.Send size={24} />
+                    Start Sending
+                    </button>
+                </div>
+                );
+            };
+
+            const ContactManager = ({ title, contacts, setContacts }) => {
+                const [newName, setNewName] = useState('');
+                const [newPhone, setNewPhone] = useState('');
+
+                const addContact = (e) => {
+                    e.preventDefault();
+                    if (!newName.trim()) return;
+                    setContacts([...contacts, { 
+                        id: Date.now(), 
+                        name: newName, 
+                        phone: newPhone, 
+                        method: 'Both' 
+                    }]);
+                    setNewName('');
+                    setNewPhone('');
+                };
+
+                const removeContact = (id) => {
+                    setContacts(contacts.filter(c => c.id !== id));
+                };
+
+                // ACCESS PHONE CONTACTS
+                const importContacts = async () => {
+                    // Check browser support
+                    const supported = ('contacts' in navigator && 'ContactsManager' in window);
+                    
+                    if (!supported) {
+                        alert("Your browser does not support accessing contacts. This feature usually requires Google Chrome on Android.");
+                        return;
+                    }
+
+                    try {
+                        // Request both Name and Telephone number
+                        const props = ['name', 'tel'];
+                        const opts = { multiple: true };
+                        
+                        const selectedContacts = await navigator.contacts.select(props, opts);
+                        
+                        if (selectedContacts.length > 0) {
+                            const newContacts = selectedContacts.map(c => ({
+                                id: Date.now() + Math.random(),
+                                name: c.name[0], 
+                                // Try to get the first phone number, or empty string
+                                phone: (c.tel && c.tel.length > 0) ? c.tel[0] : '', 
+                                method: 'Both'
+                            }));
+                            setContacts(prev => [...prev, ...newContacts]);
+                            alert(`Imported ${selectedContacts.length} contacts!`);
+                        }
+                    } catch (ex) {
+                        console.log(ex);
+                    }
+                };
+
+                return (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                        <Icons.Users size={18} className="text-slate-500" />
+                        {title}
+                    </h3>
+                    <span className="text-xs font-bold bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                        {contacts.length}
+                    </span>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-2 max-h-64">
+                    {contacts.length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-8 italic">No contacts added.</p>
+                    ) : (
+                        <div className="space-y-2">
+                        {contacts.map(contact => (
+                            <div key={contact.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                {contact.name.charAt(0)}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-slate-800">{contact.name}</span>
+                                    {contact.phone && (
+                                        <span className="text-xs text-slate-500">{contact.phone}</span>
+                                    )}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => removeContact(contact.id)}
+                                className="text-slate-300 hover:text-red-500 p-2"
+                            >
+                                <Icons.Trash2 size={18} />
+                            </button>
+                            </div>
+                        ))}
+                        </div>
+                    )}
+                    </div>
+
+                    <div className="p-3 border-t border-slate-100 bg-slate-50 space-y-2">
+                        {/* Manual Add Form */}
+                        <form onSubmit={addContact} className="flex flex-col gap-2">
+                            <input
+                                type="text"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                placeholder="Name..."
+                                className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="flex gap-2">
+                                <input
+                                    type="tel"
+                                    value={newPhone}
+                                    onChange={(e) => setNewPhone(e.target.value)}
+                                    placeholder="Phone (optional)..."
+                                    className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                                />
+                                <button 
+                                    type="submit"
+                                    className="bg-slate-800 active:bg-slate-900 text-white px-4 rounded-lg flex items-center justify-center"
+                                >
+                                    <Icons.Plus size={20} />
+                                </button>
+                            </div>
+                        </form>
+                        
+                        {/* Import Button */}
+                        <button 
+                            onClick={importContacts}
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-slate-50"
+                        >
+                            <Icons.Contact size={16} />
+                            Import Contacts
+                        </button>
+                    </div>
+                </div>
+                );
+            };
+
+            // RENDER
+            return (
+                <div className="min-h-screen bg-slate-100 font-sans text-slate-900 pb-20">
+                
+                {/* Top Bar */}
+                <div className="bg-slate-900 text-white p-4 sticky top-0 z-10 shadow-md">
+                    <div className="flex justify-between items-center max-w-2xl mx-auto">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-600 p-2 rounded-lg">
+                        <Icons.MessageCircle size={20} className="text-white" />
+                        </div>
+                        <div>
+                        <h1 className="font-bold text-lg leading-none">Scheduler</h1>
+                        <p className="text-xs text-slate-400 mt-1">
+                            {displayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            {isSimulating && " (SIM)"}
+                        </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setShowInstallGuide(!showInstallGuide)}
+                        className="p-2 bg-slate-800 rounded-full hover:bg-slate-700"
+                    >
+                        <Icons.Settings size={20} />
+                    </button>
+                    </div>
+                </div>
+
+                {/* Main Content Area */}
+                <main className="max-w-2xl mx-auto p-4 space-y-6">
+                    
+                    {/* Install Guide / Settings Panel */}
+                    {showInstallGuide && (
+                    <div className="bg-white rounded-xl p-4 shadow-lg border border-slate-200 animate-fade-in mb-4">
+                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <Icons.Smartphone size={18} />
+                        App Settings
+                        </h3>
+                        
+                        <div className="space-y-4">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <h4 className="font-semibold text-blue-900 text-sm mb-1">1. Sync with Phone Calendar</h4>
+                            <p className="text-xs text-blue-700 mb-3">
+                            The web app can't ring on its own when closed. Add these alarms to your system calendar to get notified.
+                            </p>
+                            <div className="flex gap-2">
+                            <a 
+                                href={getCalendarLink(10, "Send T1_15TH Report")}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 bg-white border border-blue-200 text-blue-700 py-2 rounded text-xs font-bold text-center shadow-sm"
+                            >
+                                Add 10th Alarm
+                            </a>
+                            <a 
+                                href={getCalendarLink(25, "Send T1_END Report")}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 bg-white border border-blue-200 text-blue-700 py-2 rounded text-xs font-bold text-center shadow-sm"
+                            >
+                                Add 25th Alarm
+                            </a>
+                            </div>
+                        </div>
+
+                        <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                            <h4 className="font-semibold text-amber-900 text-sm mb-1">2. Install for Offline Use</h4>
+                            <p className="text-xs text-amber-800 mb-2">
+                            To use this without internet:
+                            </p>
+                            <ul className="text-xs text-amber-800 list-disc pl-4 space-y-1">
+                            <li>Tap the browser menu (⋮ or <Icons.Share size={10} className="inline"/>)</li>
+                            <li>Select <b>"Add to Home Screen"</b></li>
+                            <li>Open the new icon from your home screen</li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-slate-100 p-3 rounded-lg">
+                            <h4 className="font-semibold text-slate-700 text-sm mb-2">Developer Tools</h4>
+                            <div className="flex gap-2">
+                            <button onClick={() => simulateDate(10)} className="bg-white px-3 py-1 rounded text-xs border">Sim 10th</button>
+                            <button onClick={() => simulateDate(25)} className="bg-white px-3 py-1 rounded text-xs border">Sim 25th</button>
+                            {isSimulating && <button onClick={resetSimulation} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs border border-red-200">Reset</button>}
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    )}
+
+                    {/* Tab Content */}
+                    {activeTab === 'dashboard' && (
+                    <div className="space-y-4">
+                        <StatusCard />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Group 1</div>
+                            <div className="font-bold text-slate-800">T1_15TH</div>
+                            <div className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                            <Icons.Calendar size={14} /> Due: 10th
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Group 2</div>
+                            <div className="font-bold text-slate-800">T1_END</div>
+                            <div className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                            <Icons.Calendar size={14} /> Due: 25th
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    )}
+
+                    {activeTab === 'contacts' && (
+                    <div className="space-y-6 pb-8">
+                        <ContactManager title="T1_15TH (10th)" contacts={contacts15th} setContacts={setContacts15th} />
+                        <ContactManager title="T1_END (25th)" contacts={contactsEnd} setContacts={setContactsEnd} />
+                    </div>
+                    )}
+
+                    {activeTab === 'history' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-700">Sent History</h3>
+                        {logs.length > 0 && (
+                            <button onClick={clearHistory} className="text-xs text-red-500 font-medium">Clear All</button>
+                        )}
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                        {logs.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400 text-sm">No history yet</div>
+                        ) : (
+                            logs.map(log => (
+                            <div key={log.id} className="p-4 hover:bg-slate-50">
+                                <div className="flex justify-between items-start mb-1">
+                                <span className="font-bold text-slate-800 text-sm">{log.group}</span>
+                                <span className="text-xs text-slate-400">{log.date}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                <span className="text-xs text-slate-500">{log.recipientCount} Recipients</span>
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Icons.CheckCircle size={10} /> Sent
+                                </span>
+                                </div>
+                            </div>
+                            ))
+                        )}
+                        </div>
+                    </div>
+                    )}
+
+                </main>
+
+                {/* Bottom Navigation */}
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    <div className="flex justify-between max-w-lg mx-auto">
+                    <button 
+                        onClick={() => setActiveTab('dashboard')}
+                        className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Icons.Calendar size={24} />
+                        <span className="text-[10px] font-bold mt-1">Today</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => setActiveTab('contacts')}
+                        className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'contacts' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Icons.Users size={24} />
+                        <span className="text-[10px] font-bold mt-1">Contacts</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => setActiveTab('history')}
+                        className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'history' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Icons.History size={24} />
+                        <span className="text-[10px] font-bold mt-1">Logs</span>
+                    </button>
+                    </div>
+                </div>
+
+                {/* Send Modal */}
+                {showSendModal && pendingGroup && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+                    <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl animate-slide-up sm:animate-scale-in max-h-[90vh] overflow-y-auto">
+                        <div className="bg-slate-50 p-4 rounded-t-2xl border-b border-slate-100 flex justify-between items-center sticky top-0">
+                        <h3 className="font-bold text-slate-800">Send Report Request</h3>
+                        <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase block mb-2">Copy Message First</label>
+                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 relative">
+                                <p className="text-slate-700 text-sm pr-8">{MESSAGE_TEXT}</p>
+                                <button onClick={handleCopy} className="absolute top-2 right-2 text-blue-600 p-1 hover:bg-blue-100 rounded">
+                                    <Icons.Copy size={16} />
+                                </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-slate-400 uppercase block">Choose Method</label>
+                                
+                                {/* SMS BUTTON */}
+                                {pendingGroup.contacts.some(c => c.phone) ? (
+                                    <a 
+                                    href={getSMSLink(pendingGroup.contacts)} 
+                                    className="flex items-center gap-4 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+                                    >
+                                        <div className="bg-green-100 p-2 rounded-full text-green-600">
+                                            <Icons.MessageSquare size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className="font-bold text-slate-800 block">Send via SMS</span>
+                                            <span className="text-xs text-slate-500">
+                                                Opens phone app with {pendingGroup.contacts.filter(c => c.phone).length} recipients
+                                            </span>
+                                        </div>
+                                    </a>
+                                ) : (
+                                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl opacity-60 flex items-center gap-4">
+                                        <div className="bg-slate-200 p-2 rounded-full text-slate-400"><Icons.MessageSquare size={24} /></div>
+                                        <div className="text-sm text-slate-400">Add phone numbers to contacts to use SMS.</div>
+                                    </div>
+                                )}
+
+                                {/* MESSENGER BUTTON */}
+                                <a 
+                                href="https://m.me/" 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+                                >
+                                    <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                                        <Icons.MessageCircle size={24} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="font-bold text-slate-800 block">Send via Messenger</span>
+                                        <span className="text-xs text-slate-500">Opens Facebook Messenger</span>
+                                    </div>
+                                </a>
+                            </div>
+
+                            <button 
+                                onClick={markAsSent}
+                                className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-transform"
+                            >
+                                <Icons.CheckCircle size={20} />
+                                Confirm Sent
+                            </button>
+                        </div>
+                    </div>
+                    </div>
+                )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
